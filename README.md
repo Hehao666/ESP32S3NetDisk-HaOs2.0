@@ -15,7 +15,7 @@
 
 # 相关链接：
 
-哔哩哔哩视频：等待更新
+哔哩哔哩视频：https://www.bilibili.com/video/BV1zmtN6XE9n/
 
 立创开源广场：等待更新
 
