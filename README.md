@@ -26,7 +26,9 @@ https://hehao666.github.io/
 
 # 使用指南：
 
-arduino的esp32版本为3.0.0
+ESP-IDF的版本为6.0
+
+ESP32型号：ESP32S3 Flash:4MB 无PSRAM
 
 内存卡数据的config文件夹中的`config.txt`文件`hostName`对应我们的域名前缀，修改这里即可修改后台网址。
 
