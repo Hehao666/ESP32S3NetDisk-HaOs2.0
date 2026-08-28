@@ -1,0 +1,17 @@
+{
+  "clangd.path": "d:\\ESP-IDF\\tool\\tools\\esp-clang\\esp-20.1.1_20250829\\esp-clang\\bin\\clangd.exe",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=**",
+    "--compile-commands-dir=d:\\ESP32_project\\ESP32S3\\esp32S3netdisk_3_1.7\\esp32S3netdisk\\build"
+  ],
+  "idf.openOcdConfigs": [
+    "board/esp32s3-builtin.cfg"
+  ],
+  "idf.currentSetup": "d:\\ESP-IDF\\espidf\\v6.0\\esp-idf",
+  "idf.flashType": "UART",
+  "idf.portWin": "COM4",
+  "idf.customExtraVars": {
+    "IDF_TARGET": "esp32s3"
+  }
+}
