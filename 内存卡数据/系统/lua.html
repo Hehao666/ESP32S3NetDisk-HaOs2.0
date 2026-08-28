@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN" style="overflow: auto !important; height: auto !important;">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>后台指令控制台</title>
+    <link rel="stylesheet" href="CSS/style.css">
+</head>
+
+<body style="overflow: auto !important; height: auto !important;">
+    <div class="console-container">
+        <div class="console-header">终端</div>
+        <div class="log-box" id="logBox"></div>
+
+        <div class="input-area">
+            <select class="cmd-select" id="cmdSelect" aria-label="命令类型">
+                <option value="code">code</option>
+                <option value="run">run</option>
+                <option value="long">long</option>
+            </select>
+
+            <input type="text" class="command-input" id="commandInput" placeholder="输入路径 或 Lua 代码" autocomplete="off">
+            <button type="button" class="submit-btn" id="submitBtn">提交</button>
+        </div>
+    </div>
+
+    <script>
+        const logBox = document.getElementById('logBox');
+        const commandInput = document.getElementById('commandInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const cmdSelect = document.getElementById('cmdSelect');
+
+        const cmdMap = {
+            run: "run ",
+            code: "",
+            long: "long ",
+        };
+
+        const CMD_PREFIX = cmdMap;
+        const LOG_PREFIX = { input: '> ', system: '* ' };
+        const PLACEHOLDER = { run: "输入[文件路径 参数1 参数2 ..]", code: "输入[Lua代码]", long: "长对话版code" };
+
+        let currentController = null;
+
+        function addLog(content, { type = 'response' } = {}) {
+            const logLine = document.createElement('div');
+            const classMap = { input: 'input-log', response: 'response-log', system: 'system-log' };
+            logLine.className = classMap[type] || 'response-log';
+            logLine.textContent = (LOG_PREFIX[type] || '') + content;
+            logBox.appendChild(logLine);
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        function updatePlaceholder() {
+            commandInput.placeholder = PLACEHOLDER[cmdSelect.value];
+        }
+
+        async function handleSubmit() {
+            const cmdType = cmdSelect.value;
+            const input = commandInput.value.trim();
+            if (!input || submitBtn.disabled) return;
+
+            const displayCmd = (CMD_PREFIX[cmdType] || '') + input;
+            addLog(displayCmd, { type: 'input' });
+            commandInput.value = '';
+
+            submitBtn.disabled = true;
+            currentController?.abort();
+            currentController = new AbortController();
+
+            try {
+                const res = await fetch('/run_lua', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: (cmdMap[cmdType] || "") + input,
+                    signal: currentController.signal,
+                });
+                const result = (await res.text()).trim();
+                addLog(result || '执行完成(无输出)', { type: 'response' });
+            } catch (e) {
+                if (e.name === 'AbortError') return;
+                addLog('请求失败:' + e.message, { type: 'response' });
+            } finally {
+                submitBtn.disabled = false;
+                commandInput.focus();
+            }
+        }
+
+        submitBtn.addEventListener('click', handleSubmit);
+        commandInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleSubmit();
+            if (e.key === 'Escape') commandInput.value = '';
+        });
+
+        addLog('系统已就绪,请输入指令...', { type: 'system' });
+        updatePlaceholder();
+        cmdSelect.addEventListener('change', updatePlaceholder);
+    </script>
+
+</body>
+
+</html>

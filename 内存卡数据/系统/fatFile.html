@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=2.0, user-scalable=yes" />
+  <link rel="stylesheet" href="CSS/style.css">
+  <title>文件总管理</title>
+</head>
+
+<body>
+  <div class="container" style="width: auto;">
+    <span class="text" id="filenum"></span>
+    <span class="text" id="path"></span>
+    <p>
+      <button class="top-icon-btn icon-btn" onclick="backone()">
+        <i class="icon-fanhuishangyiji"></i>
+        <span>上一级</span>
+      </button>
+    </p>
+  </div>
+
+  <div class="containerlist">
+    <ul id="fileList"></ul>
+  </div>
+
+  <!-- 1. 上传弹窗 -->
+  <div id="uploadModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <span class="close" onclick="cancelUpload()">&times;</span>
+      <h2>文件上传中...</h2>
+      <progress id="modalProgressBar" value="0" max="100"></progress>
+      <p id="modalStatus"></p>
+      <div class="btn-row">
+        <button class="btn btn-cancel" onclick="cancelUpload()">取消上传</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 提示弹窗 -->
+  <div id="notificationModal" class="modal modal-notification" style="display:none;">
+    <div class="modal-content">
+      <span class="notification-message"></span>
+      <div class="btn-row">
+        <button class="btn" id="closeNotification">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. 重命名弹窗 -->
+  <div id="renameModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <input type="text" id="renameInput" placeholder="请输入新文件名">
+      <input type="hidden" id="hiddenFilePath">
+      <div class="btn-row">
+        <button class="btn btn-cancel" onclick="hideModal('renameModal')">取消</button>
+        <button class="btn" onclick="applyRename()">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. 文本编辑弹窗 -->
+  <div id="modifyModal" class="modal modal-modify" style="display:none;">
+    <div class="modal-content">
+      <span id="modalClose" class="close">&times;</span>
+      <h3 id="modalFilename"></h3>
+      <div class="btn-row">
+        <button class="btn" id="saveButton">保存</button>
+      </div>
+      <textarea id="textareaContent" placeholder="..."></textarea>
+    </div>
+  </div>
+
+  <!-- 5. 图片预览弹窗 -->
+  <div id="myModal" class="modal modal-image" style="display:none;" onclick="checkClick(event)">
+    <div class="modal-content">
+      <img id="displayedImage" src="">
+    </div>
+  </div>
+
+  <!-- 6. 新建文件夹弹窗 -->
+  <div id="foldModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <h3>新建文件夹</h3>
+      <input type="text" id="foldNameInput" placeholder="请输入文件夹名称" autocomplete="off">
+      <div class="btn-row">
+        <button class="btn btn-cancel" id="cancelCreate">取消</button>
+        <button class="btn" id="confirmCreate">确认创建</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. 删除确认弹窗 -->
+  <div id="deleteConfirmModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <h3>确认删除</h3>
+      <div class="btn-row">
+        <button class="btn btn-cancel" id="cancelDelete">取消</button>
+        <button class="btn" id="confirmDelete">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. 下载进度弹窗 -->
+  <div id="downloadProgressModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <h3 id="downloadTitle">📥 准备下载...</h3>
+      <div id="downloadFileName" style="font-size:13px;color:#666;margin-bottom:12px;text-align:center;"></div>
+      <progress id="downloadProgressBar" value="0" max="100"></progress>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:#888;margin:8px 0;">
+        <span id="downloadSize">0 B / 0 B</span>
+        <span id="downloadSpeed">0 B/s</span>
+      </div>
+      <div id="downloadPercent"
+        style="text-align:center;font-size:24px;font-weight:bold;color:#59a8d8;margin-bottom:12px;">0%</div>
+      <div class="btn-row">
+        <button class="btn btn-cancel" onclick="cancelDownload()">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9. 新建文件弹窗（新增，样式完全一致） -->
+  <div id="fileModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <h3>新建文件</h3>
+      <input type="text" id="fileNameInput" placeholder="请输入文件名称" autocomplete="off">
+      <div class="btn-row">
+        <button class="btn btn-cancel" id="cancelCreateFile">取消</button>
+        <button class="btn" id="confirmCreateFile">确认创建</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+<script>
+  // 👉 这样 JS 里才能读到 storage=1
+  window._STORAGE = 1;
+</script>
+<script src="JS/fileManager.js"></script>
+
+</html>

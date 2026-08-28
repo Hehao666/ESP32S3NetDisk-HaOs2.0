@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=2.0, user-scalable=yes" />
+    <link rel="icon" type="image/png"
+        href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8DwQMAAFAbQIOMhQIiIAwQAAAABJRU5ErkJggg==" />
+    <link rel="stylesheet" href="../系统/CSS/style.css">
+    <title>HaOs</title>
+</head>
+
+<body style="background-image: url('../配置/背景.webp');">
+    <nav style="max-width:100vw; overflow-x:hidden; box-sizing:border-box;">
+        <ul>
+            <li class="no-hover">
+                <a class="logo">
+                    <img src="../配置/头像.webp" alt="" />
+                    <span class="nav-item">哈哈233的随身网盘</span>
+                </a>
+            </li>
+            <li>
+                <a href="网络配置" data-url="../系统/wifi.html">
+                    <i class="iconfont icon-wangluopeizhi"></i>
+                    <span class="nav-item">网络配置</span>
+                </a>
+            </li>
+            <li>
+                <a href="终端" data-url="../系统/lua.html">
+                    <i class="iconfont icon-zhongduan"></i>
+                    <span class="nav-item">终端</span>
+                </a>
+            </li>
+            <li>
+                <a href="音乐播放" data-url="../系统/audio.html">
+                    <i class="iconfont icon-yuleyinlebofang-copy"></i>
+                    <span class="nav-item">音乐播放</span>
+                </a>
+            </li>
+            <li>
+                <a href="视频播放" data-url="../系统/video.html">
+                    <i class="iconfont icon-sirenyingyuan"></i>
+                    <span class="nav-item">视频播放</span>
+                </a>
+            </li>
+            <li>
+                <a href="剪切板" data-url="../系统/clipboard.html">
+                    <i class="iconfont icon-copy-full"></i>
+                    <span class="nav-item">剪切板</span>
+                </a>
+            </li>
+            <li>
+                <a href="HaOs游戏库" data-url="../系统/webgame.html">
+                    <i class="iconfont icon-youxiku"></i>
+                    <span class="nav-item">HaOs游戏库</span>
+                </a>
+            </li>
+            <li>
+                <a href="设置" data-url="../系统/set.html">
+                    <i class="iconfont icon-shezhi"></i>
+                    <span class="nav-item">设置</span>
+                </a>
+            </li>
+            <li>
+                <a href="内部存储管理" data-url="../系统/fatFile.html" class="storage-row fat-storage">
+                    <i class="iconfont icon-neicun"></i>
+                    <span class="nav-item" id="fatCurrentMemory"></span>
+                    <span class="nav-item" id="fatTotalMemory"></span>
+                </a>
+            </li>
+            <li>
+                <a href="内存卡管理" data-url="../系统/allFile.html?mode=root" class="storage-row">
+                    <i class="iconfont icon-neicun"></i>
+                    <span class="nav-item" id="currentMemory"></span>
+                    <span class="nav-item" id="totalMemory"></span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+    <div class="wrapper">
+        <div class="main-panel">
+            <iframe src="" width="100%" height="100%" style="border: none;"></iframe>
+        </div>
+    </div>
+
+    <div class="float-music">
+        <div class="float-box" id="floatBox">
+            <div class="float-playlist" id="floatPlist"></div>
+            <!--新增进度条-->
+            <div class="float-progress-wrap" id="progressWrap">
+                <div class="float-progress-bar" id="progressBar"></div>
+            </div>
+            <div class="float-playlist">
+                <div class="float-name" id="floatName">暂无歌曲</div>
+            </div>
+            <div class="float-btn-group">
+                <button id="fPrev"><i class="iconfont icon-shangyiqu"></i></button>
+                <button id="fPlay"><i class="iconfont icon-yunhang"></i></button>
+                <button id="fNext"><i class="iconfont icon-xiayiqu"></i></button>
+            </div>
+        </div>
+        <div class="float-circle" id="floatCircle"><i class="iconfont icon-yuleyinlebofang-copy"></i></div>
+    </div>
+
+    <!--全局音频实例(核心，常驻首页不销毁)-->
+    <audio id="audioPlayer">
+    </audio>
+
+</body>
+<script>
+    // ===== 文本清理函数（只清理，不修改内容）=====
+    function cleanId3Text(text) {
+        if (!text) return text;
+        // 只去除空字节和替换字符，不删除任何可见文本
+        return text.replace(/\0/g, '').replace(/\ufffd/g, '').trim();
+    }
+
+    // ===== 检查文本是否有效（不含乱码）=====
+    function looksValid(str) {
+        if (!str || str.length === 0) return false;
+        // 包含替换字符或控制字符 = 乱码
+        if (/[\ufffd\x00-\x08\x0B\x0C\x0E-\x1F]/.test(str)) return false;
+        // 如果全是ASCII，也算有效
+        if (/^[\x20-\x7E]+$/.test(str)) return true;
+        // 中文检查：至少包含一个常用中文字符
+        if (/[\u4e00-\u9fff]/.test(str)) return true;
+        // 日文假名
+        if (/[\u3040-\u309F\u30A0-\u30FF]/.test(str)) return true;
+        // 韩文
+        if (/[\uAC00-\uD7AF]/.test(str)) return true;
+        return false;
+    }
+
+    // ===== 文本解码工具函数 =====
+    function decodeFrameText(data, start, maxLen, encoding) {
+        let end = start;
+
+        if (encoding === 1 || encoding === 2) {
+            // UTF-16: 按双字节找结尾（两个连续的 00 00）
+            while (end < start + maxLen - 1 && !(data[end] === 0 && data[end + 1] === 0)) {
+                end += 2;
+            }
+            // 对齐到偶数
+            if ((end - start) % 2 !== 0) end++;
+            if (end > start + maxLen) end = start + maxLen;
+        } else {
+            // Latin1 / UTF-8: 按单字节 00 找结尾
+            while (end < start + maxLen && data[end] !== 0) end++;
+        }
+
+        let raw = data.slice(start, end);
+        if (raw.length === 0) return "";
+
+        let res = "";
+
+        try {
+            if (encoding === 0) {
+                // Latin1，大概率是GBK伪装的
+                try {
+                    res = new TextDecoder("gbk").decode(raw);
+                    if (res.indexOf('\uFFFD') === -1) return res.replace(/\0/g, "").trim();
+                } catch (e) { }
+                try {
+                    res = new TextDecoder("gb18030").decode(raw);
+                    if (res.indexOf('\uFFFD') === -1) return res.replace(/\0/g, "").trim();
+                } catch (e) { }
+                return new TextDecoder("latin1").decode(raw).replace(/\0/g, "").trim();
+            }
+            else if (encoding === 1 || encoding === 2) {
+                // UTF-16
+                if (raw.length >= 2) {
+                    const hasBOM = (raw[0] === 0xFF && raw[1] === 0xFE) ||
+                        (raw[0] === 0xFE && raw[1] === 0xFF);
+                    if (!hasBOM) {
+                        let bom = new Uint8Array([0xFE, 0xFF]);
+                        let fixed = new Uint8Array(raw.length + 2);
+                        fixed.set(bom, 0);
+                        fixed.set(raw, 2);
+                        res = new TextDecoder("utf-16").decode(fixed);
+                    } else {
+                        res = new TextDecoder("utf-16").decode(raw);
+                    }
+                    return res.replace(/\0/g, "").trim();
+                }
+            }
+            else if (encoding === 3) {
+                res = new TextDecoder("utf-8").decode(raw);
+                return res.replace(/\0/g, "").trim();
+            }
+        } catch (e) { }
+
+        return res.replace(/\0/g, "").trim();
+    }
+
+    //====全局音乐数据存储(给iframe读取)====
+    let currentTrackIndex = 0;
+    const audioPlayer = document.getElementById('audioPlayer');
+    const floatBox = document.getElementById('floatBox');
+    const floatCircle = document.getElementById('floatCircle');
+    const floatName = document.getElementById('floatName');
+    const fPrev = document.getElementById('fPrev');
+    const fPlay = document.getElementById('fPlay');
+    const fNext = document.getElementById('fNext');
+
+    let playlist = [];
+    let nowMeta = { cover: null, lyric: "", songName: "未加载", artist: "未知歌手", album: "" };
+
+    //悬浮展开收缩
+    floatCircle.onclick = () => floatBox.classList.toggle('open');
+
+    //悬浮按钮
+    fPlay.onclick = () => {
+        if (!playlist.length) return;
+        if (audioPlayer.paused) {
+            audioPlayer.play();
+            fPlay.innerHTML = '<i class="iconfont icon-zanting"></i>';
+        } else {
+            audioPlayer.pause();
+            fPlay.innerHTML = '<i class="iconfont icon-yunhang"></i>';
+        }
+        sendMsgToIframe();
+    }
+    fPrev.onclick = playPrev;
+    fNext.onclick = playNext;
+
+    //获取歌单
+    function listAudio() {
+        fetch('/listaudio')
+            .then(r => r.json())
+            .then(data => {
+                playlist = data.files.filter(f =>
+                    /\.(mp3|wav|flac|aac|ogg|m4a)$/i.test(f.filepath)
+                );
+                renderFloatList();
+            })
+            .catch(err => console.error("获取列表失败", err));
+    }
+
+    //加载歌曲 + 解析封面歌词存入全局nowMeta
+    async function loadAndPlay(index) {
+        if (index < 0 || index >= playlist.length) return;
+        currentTrackIndex = index;
+        const file = playlist[index];
+        const name = file.filepath.split('/').pop();
+
+        // 从文件名提取信息（兜底）
+        let cleanName = name.replace(/\.(mp3|flac|wav|m4a|ogg)$/i, '').trim();
+        let artistFromFile = "未知歌手";
+        let songFromFile = cleanName;
+
+        if (cleanName.includes(" - ")) {
+            let parts = cleanName.split(" - ");
+            artistFromFile = parts[0].trim();
+            songFromFile = parts.slice(1).join(" - ").trim();
+        }
+
+        // 先用文件名作为默认值
+        nowMeta.artist = artistFromFile;
+        nowMeta.album = "";
+        nowMeta.songName = songFromFile;
+        nowMeta.cover = null;
+        nowMeta.lyric = "";
+
+        audioPlayer.src = file.filepath;
+        await audioPlayer.play().catch(() => { });
+        fPlay.innerHTML = '<i class="iconfont icon-zanting"></i>';
+
+        // 解析元数据
+        try {
+            const res = await fetch(file.filepath, { headers: { Range: "bytes=0-2097152" } });
+            const buf = await res.arrayBuffer();
+            const u8 = new Uint8Array(buf);
+            const sig = String.fromCharCode(u8[0], u8[1], u8[2], u8[3]);
+            let meta;
+            if (sig.startsWith("ID3")) meta = parseID3v2(buf);
+            else if (sig === "fLaC") meta = parseFLAC(buf);
+
+            if (meta) {
+                // 封面和歌词直接使用
+                if (meta.cover) nowMeta.cover = meta.cover;
+                if (meta.lyric) nowMeta.lyric = meta.lyric;
+
+                // 文本字段：只有看起来有效才覆盖文件名提取的
+                if (looksValid(meta.title)) nowMeta.songName = meta.title;
+                if (looksValid(meta.artist)) nowMeta.artist = meta.artist;
+                if (looksValid(meta.album)) nowMeta.album = meta.album;
+                if (meta.year && looksValid(meta.year)) nowMeta.year = meta.year;
+                if (meta.track && /^\d+/.test(meta.track)) nowMeta.track = meta.track;
+                if (meta.genre && looksValid(meta.genre)) nowMeta.genre = meta.genre;
+            }
+        } catch (e) {
+            console.error("解析元数据失败:", e);
+        }
+
+        floatName.textContent = nowMeta.songName;
+        sendMsgToIframe();
+        updateFloatUI();
+    }
+
+    function playPrev() {
+        currentTrackIndex = currentTrackIndex > 0 ? currentTrackIndex - 1 : playlist.length - 1;
+        loadAndPlay(currentTrackIndex);
+    }
+    function playNext() {
+        currentTrackIndex = (currentTrackIndex + 1) % playlist.length;
+        loadAndPlay(currentTrackIndex);
+    }
+
+    //播放状态同步
+    audioPlayer.onended = playNext;
+    audioPlayer.onpause = () => {
+        fPlay.innerHTML = '<i class="iconfont icon-yunhang"></i>';
+        sendMsgToIframe();
+    };
+    audioPlayer.onplay = () => {
+        fPlay.innerHTML = '<i class="iconfont icon-zanting"></i>';
+        sendMsgToIframe();
+    };
+
+    //====向audio.html iframe发送播放数据====
+    function sendMsgToIframe() {
+        const iframe = document.querySelector('.main-panel iframe');
+        if (!iframe.contentWindow) return;
+        iframe.contentWindow.postMessage({
+            type: "syncMusic",
+            idx: currentTrackIndex,
+            playlist: playlist,
+            meta: nowMeta,
+            paused: audioPlayer.paused,
+            currentTime: audioPlayer.currentTime
+        }, "*");
+    }
+
+    const iframe = document.querySelector('.main-panel iframe');
+    iframe.addEventListener('load', () => {
+        setTimeout(sendMsgToIframe, 100);
+    });
+
+    //====接收iframe发来的播放控制====
+    window.addEventListener('message', (e) => {
+        const d = e.data;
+        if (!d || !d.cmd) return;
+        switch (d.cmd) {
+            case "togglePlay":
+                if (audioPlayer.paused) audioPlayer.play();
+                else audioPlayer.pause();
+                break;
+            case "prev": playPrev(); break;
+            case "next": playNext(); break;
+            case "loadIdx": loadAndPlay(d.index); break;
+            case "seek": audioPlayer.currentTime = d.t; break;
+            case "seekPercent":
+                if (audioPlayer.duration) audioPlayer.currentTime = d.pct * audioPlayer.duration;
+                break;
+            case "loadIndex": loadAndPlay(d.index); break;
+            case "requestTime":
+                let loadedTime = audioPlayer.buffered.length ? audioPlayer.buffered.end(audioPlayer.buffered.length - 1) : 0;
+                e.source.postMessage({
+                    currentTime: audioPlayer.currentTime,
+                    totalTime: audioPlayer.duration || 0,
+                    loadedTime: loadedTime
+                }, "*");
+                break;
+            case "requestState":
+                sendMsgToIframe();
+                break;
+        }
+    })
+
+    //====ID3v2解析函数（修复版）====
+    function parseID3v2(buffer) {
+        const data = new Uint8Array(buffer);
+        let result = {
+            cover: null, lyric: null,
+            title: "", artist: "", album: "",
+            year: "", track: "", genre: ""
+        }
+        if (data.length < 10 || data[0] !== 0x49 || data[1] !== 0x44 || data[2] !== 0x33) return result;
+        const version = data[3];
+        const tagSize = (data[6] << 21) | (data[7] << 14) | (data[8] << 7) | data[9];
+        let offset = 10;
+        const limit = Math.min(offset + tagSize, data.length);
+
+        while (offset < limit) {
+            const frameId = String.fromCharCode(data[offset], data[offset + 1], data[offset + 2], data[offset + 3]);
+            if (frameId === '\x00\x00\x00\x00' || frameId === '') break;
+
+            let frameSize;
+            if (version === 3) frameSize = (data[offset + 4] << 24) | (data[offset + 5] << 16) | (data[offset + 6] << 8) | data[offset + 7];
+            else frameSize = (data[offset + 4] << 21) | (data[offset + 5] << 14) | (data[offset + 6] << 7) | data[offset + 7];
+            if (frameSize <= 0 || offset + 10 + frameSize > data.length) break;
+
+            // 文本帧解析（不再乱清理）
+            if (["TIT2", "TPE1", "TALB", "TYER", "TRCK", "TCON"].includes(frameId)) {
+                try {
+                    let enc = data[offset + 10];
+                    let pos = offset + 11;
+                    if (data[pos] === 0xFF && data[pos + 1] === 0xFE) enc = 2;
+                    else if (data[pos] === 0xFE && data[pos + 1] === 0xFF) enc = 1;
+
+                    let text = decodeFrameText(data, pos, frameSize - 1, enc);
+                    // 只做最基础的清理
+                    text = cleanId3Text(text);
+
+                    switch (frameId) {
+                        case "TIT2": result.title = text; break;
+                        case "TPE1": result.artist = text; break;
+                        case "TALB": result.album = text; break;
+                        case "TYER": result.year = text; break;
+                        case "TRCK": result.track = text.replace(/\/.*/, ''); break;
+                        case "TCON": result.genre = text.replace(/\(\d+\)/g, ''); break;
+                    }
+                } catch (e) { }
+            }
+
+            // 封面
+            else if (frameId === 'APIC' && !result.cover) {
+                try {
+                    let pos = offset + 10;
+                    const encoding = data[pos++];
+                    let mimeStart = pos;
+                    while (pos < limit && data[pos] !== 0x00) pos++;
+                    const mimeType = String.fromCharCode(...data.slice(mimeStart, pos)) || 'image/jpeg';
+                    pos += 2;
+                    if (encoding === 1 || encoding === 2) {
+                        while (pos < limit - 1 && (data[pos] !== 0x00 || data[pos + 1] !== 0x00)) pos += 2; pos += 2;
+                    } else {
+                        while (pos < limit && data[pos] !== 0x00) pos++; pos++;
+                    }
+                    const imgData = data.slice(pos, offset + 10 + frameSize);
+                    result.cover = URL.createObjectURL(new Blob([imgData], { type: mimeType }));
+                } catch (e) { }
+            }
+
+            // 歌词
+            else if (frameId === 'USLT' && !result.lyric) {
+                try {
+                    let pos = offset + 10;
+                    const enc = data[pos++]; pos += 3;
+                    if (enc === 1 || enc === 2) { while (pos < limit - 1 && (data[pos] !== 0 || data[pos + 1] !== 0)) pos += 2; pos += 2; }
+                    else { while (pos < limit && data[pos] !== 0) pos++; pos++; }
+                    const td = data.slice(pos, offset + 10 + frameSize);
+                    let dec = enc === 0 ? new TextDecoder('gbk') : enc === 1 || enc === 2 ? new TextDecoder('utf-16') : new TextDecoder('utf-8');
+                    result.lyric = dec.decode(td).replace(/\0/g, '').trim();
+                } catch (e) { }
+            }
+
+            offset += 10 + frameSize;
+        }
+        return result;
+    }
+
+    //====FLAC解析函数====
+    function parseFLAC(buffer) {
+        const data = new Uint8Array(buffer);
+        const view = new DataView(buffer);
+        let result = { cover: null, lyric: null, title: "", artist: "", album: "", year: "", track: "", genre: "" };
+        let offset = 4;
+        let isLast = false;
+
+        while (!isLast && offset < data.length) {
+            const header = view.getUint32(offset, false);
+            isLast = (header & 0x80000000) !== 0;
+            const blockType = (header & 0x7F000000) >>> 24;
+            const blockSize = header & 0x00FFFFFF;
+            offset += 4;
+            if (offset + blockSize > data.length) break;
+
+            if (blockType === 4) {
+                try {
+                    let pos = offset;
+                    const vendorLen = view.getUint32(pos, true); pos += 4 + vendorLen;
+                    const listLen = view.getUint32(pos, true); pos += 4;
+                    const dec = new TextDecoder('utf-8');
+                    for (let i = 0; i < listLen; i++) {
+                        const len = view.getUint32(pos, true); pos += 4;
+                        const s = dec.decode(data.slice(pos, pos + len)); pos += len;
+                        const us = s.toUpperCase();
+                        if (us.startsWith('TITLE=')) result.title = s.split('=').slice(1).join('=') || '';
+                        if (us.startsWith('ARTIST=')) result.artist = s.split('=').slice(1).join('=') || '';
+                        if (us.startsWith('ALBUM=')) result.album = s.split('=').slice(1).join('=') || '';
+                        if (us.startsWith('LYRICS=') || us.startsWith('UNSYNCEDLYRICS=')) result.lyric = s.split('=').slice(1).join('=') || '';
+                        if (us.startsWith('DATE=')) result.year = s.split('=').slice(1).join('=') || '';
+                        if (us.startsWith('TRACKNUMBER=')) result.track = s.split('=').slice(1).join('=').replace(/\/.*/, '') || '';
+                        if (us.startsWith('GENRE=')) result.genre = s.split('=').slice(1).join('=') || '';
+                        if (us.startsWith('ORIGINALDATE=')) result.year = result.year || s.split('=').slice(1).join('=') || '';
+                    }
+                } catch (e) { }
+            }
+
+            if (blockType === 6 && !result.cover) {
+                try {
+                    let pos = offset; pos += 4;
+                    const mimeLen = view.getUint32(pos, false); pos += 4;
+                    const mime = String.fromCharCode(...data.slice(pos, pos + mimeLen)); pos += mimeLen;
+                    const descLen = view.getUint32(pos, false); pos += 4 + descLen + 16;
+                    const picLen = view.getUint32(pos, false); pos += 4;
+                    const img = data.slice(pos, pos + picLen);
+                    result.cover = URL.createObjectURL(new Blob([img], { type: mime }));
+                } catch (e) { }
+            }
+
+            offset += blockSize;
+        }
+        return result;
+    }
+
+    //=====下方原有首页JS不动=====
+    const urlMapping = {
+        1: '../系统/webgame.html',
+        2: '../系统/lua.html',
+        3: '../系统/audio.html',
+        4: '../系统/video.html',
+        5: '../系统/clipboard.html',
+        6: '../系统/allFile.html',
+        7: '../系统/webgame.html',
+        8: '../系统/set.html',
+        9: '../系统/fatFile.html'
+    };
+
+    let lastStorageData = null;
+    function storage() {
+        fetch('/get_storage')
+            .then(response => response.json())
+            .then(data => {
+                lastStorageData = data;
+                calStorage();
+            })
+            .then(() => getFirstWeb())
+            .catch(error => console.error('Error:', error));
+    }
+    function calStorage() {
+        document.getElementById('currentMemory').innerText = bytesToSize(lastStorageData.storage);
+        document.getElementById('totalMemory').innerText = " / " + bytesToSize(lastStorageData.totalstorage);
+        let percentageUsed = (lastStorageData.storage / lastStorageData.totalstorage) * 100;
+        percentageUsed = Math.min(percentageUsed, 100);
+        const nav = document.querySelector('nav');
+        const navWidth = nav.classList.contains('close') ? 88 : 280;
+        const widthPx = navWidth * (percentageUsed / 100);
+        document.querySelector('.storage-row').style.setProperty('--progress-width', `${widthPx}px`);
+        const fatCurrent = document.getElementById('fatCurrentMemory');
+        const fatTotal = document.getElementById('fatTotalMemory');
+        const fatRow = document.querySelector('.fat-storage');
+        fatCurrent.innerText = bytesToSize(lastStorageData.fat_used || 0);
+        fatTotal.innerText = " / " + bytesToSize(lastStorageData.fat_total || 0);
+        let fatPercent = lastStorageData.fat_total > 0 ? (lastStorageData.fat_used / lastStorageData.fat_total) * 100 : 0;
+        fatPercent = Math.min(fatPercent, 100);
+        const fatWidth = navWidth * (fatPercent / 100);
+        fatRow.style.setProperty('--progress-width', `${fatWidth}px`);
+    }
+    function bytesToSize(bytes) {
+        var sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+        if (bytes == 0) return '0 B';
+        var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+        var size = bytes / Math.pow(1024, i);
+        if (sizes[i] !== 'B') size = size.toFixed(2);
+        return size + ' ' + sizes[i];
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        const navListItems = document.querySelectorAll('nav ul li');
+        navListItems.forEach(item => {
+            item.addEventListener('click', function (event) {
+                handleNavLinkClick(event, navListItems);
+            });
+        });
+    });
+    function handleNavLinkClick(event, navListItemsParam) {
+        const targetElement = event.target;
+        const anchor = targetElement.closest('a');
+        if (anchor) {
+            event.preventDefault();
+            if (!anchor.hasAttribute('data-url')) return;
+            const iframe = document.querySelector('.main-panel iframe');
+            iframe.src = anchor.getAttribute('data-url');
+            navListItemsParam.forEach(item => item.classList.remove('current-page'));
+            anchor.parentElement.classList.add('current-page');
+        }
+    }
+    function getFirstWeb() {
+        fetch('/get_FirstWebis')
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                return response.json();
+            })
+            .then(data => {
+                const firstWebis = data.FirstWebis;
+                const iframe = document.querySelector('.main-panel iframe');
+                const navLinks = document.querySelectorAll('nav ul li a[data-url]');
+                document.querySelectorAll('nav ul li').forEach(item => item.classList.remove('current-page'));
+                if (urlMapping.hasOwnProperty(firstWebis)) {
+                    const originalPath = urlMapping[firstWebis];
+                    let targetLink = null;
+                    navLinks.forEach(link => {
+                        const dataUrl = link.getAttribute('data-url');
+                        if (dataUrl && dataUrl.split('?')[0] === originalPath) {
+                            targetLink = link;
+                        }
+                    });
+                    if (targetLink) {
+                        iframe.src = targetLink.getAttribute('data-url');
+                        targetLink.parentElement.classList.add('current-page');
+                    } else {
+                        iframe.src = originalPath;
+                    }
+                } else {
+                    console.warn('No mapping found for FirstWebis value:', firstWebis);
+                }
+            })
+            .catch(error => console.error('Error fetching first web info:', error));
+    }
+    // 判断是否是手机
+    function isMobile() {
+        return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }
+
+    window.onload = () => {
+        storage();
+        listAudio();
+
+        // 如果是手机，自动收缩侧边栏
+        if (isMobile()) {
+            nav.classList.add('hidden');
+            calStorage(); // 重新计算进度条宽度适配收缩后的侧边栏
+        }
+    }
+    // 头像：点击切换收缩，长按切换完全隐藏（手机记忆状态最终版）
+    const nav = document.querySelector('nav');
+    const logoImg = document.querySelector('.logo img');
+    logoImg.style.cursor = 'pointer';
+
+    let pressTimer = null;
+    let longPressed = false;
+    const LONG_PRESS_DURATION = 100;
+
+    // 记忆隐藏前的侧边栏状态（close / 正常展开）
+    let navStateBeforeHidden = '';
+
+    function handlePressStart(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        longPressed = false;
+
+        pressTimer = setTimeout(() => {
+            longPressed = true;
+
+            if (nav.classList.contains('hidden')) {
+                // 从隐藏恢复，回到隐藏之前的状态
+                nav.classList.remove('hidden');
+                if (navStateBeforeHidden === 'close') {
+                    nav.classList.add('close');
+                } else {
+                    nav.classList.remove('close');
+                }
+            } else {
+                // 进入隐藏，先记录当前状态
+                navStateBeforeHidden = nav.classList.contains('close') ? 'close' : 'open';
+                nav.classList.add('hidden');
+                nav.classList.remove('close');
+            }
+            calStorage();
+        }, LONG_PRESS_DURATION);
+    }
+
+    function handlePressEnd(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (pressTimer) {
+            clearTimeout(pressTimer);
+            pressTimer = null;
+        }
+
+        if (!longPressed) {
+            // 短点击：隐藏状态先恢复，再正常切换
+            if (nav.classList.contains('hidden')) {
+                nav.classList.remove('hidden');
+                if (navStateBeforeHidden === 'close') {
+                    nav.classList.add('close');
+                } else {
+                    nav.classList.remove('close');
+                }
+            } else {
+                nav.classList.toggle('close');
+            }
+            calStorage();
+        }
+    }
+
+    function handlePressCancel() {
+        if (pressTimer) {
+            clearTimeout(pressTimer);
+            pressTimer = null;
+        }
+    }
+
+    // PC端事件
+    logoImg.addEventListener('mousedown', handlePressStart);
+    logoImg.addEventListener('mouseup', handlePressEnd);
+    logoImg.addEventListener('mouseleave', handlePressCancel);
+
+    logoImg.addEventListener('touchstart', handlePressStart, { passive: false });
+    logoImg.addEventListener('touchend', handlePressEnd, { passive: false });
+    logoImg.addEventListener('touchcancel', handlePressCancel, { passive: false });
+
+    //刷新悬浮播放列表
+    function renderFloatList() {
+        const wrap = document.getElementById('floatPlist');
+        wrap.innerHTML = "";
+        playlist.forEach((item, i) => {
+            const div = document.createElement('div');
+            div.className = 'float-pl-item ' + (i === currentTrackIndex ? 'active' : '');
+            div.textContent = item.filepath.split('/').pop();
+            div.onclick = () => loadAndPlay(i);
+            wrap.appendChild(div);
+        })
+    }
+    //同步时顺带刷新列表+歌名
+    function updateFloatUI() {
+        floatName.textContent = nowMeta.songName;
+        renderFloatList();
+    }
+    const progressWrap = document.getElementById('progressWrap');
+    const progressBar = document.getElementById('progressBar');
+
+    // 点击进度条跳转播放位置
+    progressWrap.onclick = function (e) {
+        const rect = progressWrap.getBoundingClientRect();
+        const per = (e.clientX - rect.left) / rect.width;
+        audioPlayer.currentTime = per * audioPlayer.duration;
+    }
+
+    // 音乐播放时实时同步进度
+    audioPlayer.addEventListener('timeupdate', () => {
+        if (!audioPlayer.duration) {
+            progressBar.style.width = '0%';
+            return;
+        }
+        const percent = (audioPlayer.currentTime / audioPlayer.duration) * 100;
+        progressBar.style.width = percent + '%';
+
+        let buf = audioPlayer.buffered.length ? audioPlayer.buffered.end(audioPlayer.buffered.length - 1) / audioPlayer.duration * 100 : 0;
+        progressWrap.style.setProperty('--buff', buf + '%');
+    });
+</script>
+
+</html>

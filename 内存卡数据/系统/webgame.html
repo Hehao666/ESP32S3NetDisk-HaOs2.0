@@ -1,0 +1,94 @@
+﻿<!DOCTYPE HTML>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <link rel="stylesheet" href="CSS/style.css">
+    <title>HaOs游戏库</title>
+</head>
+
+<body>
+    <div class="glass-wrapper">
+        <section class="main">
+            <h2 class="sticky-header">HTML 游戏</h2>
+            <div class="box" id="htmlGamesBox"></div>
+
+            <h2 class="sticky-header">FLASH 游戏</h2>
+            <div class="box" id="flashGamesBox"></div>
+        </section>
+    </div>
+
+    <script>
+        window.onload = loadAllGames;
+
+        // 串行加载：先HTML 后FLASH
+        async function loadAllGames() {
+            await loadHtmlGames();
+            await loadFlashGames();
+        }
+
+        // 加载 HTML 游戏 —— 直接读取数组
+        async function loadHtmlGames() {
+            const htmlBox = document.getElementById('htmlGamesBox');
+            try {
+                const res = await fetch('/gamelist?type=html');
+                const games = await res.json(); // 直接获取数组
+                htmlBox.innerHTML = "";
+
+                const gameList = Array.isArray(games) ? games : [];
+                gameList.forEach(game => {
+                    const div = document.createElement('div');
+                    div.innerHTML = `
+                    <a data-url="${game.url}" href="${game.url}">
+                        <div class="item">
+                            <div class="gamelogo">${game.name}</div>
+                            <div class="desc">${game.desc}</div>
+                        </div>
+                    </a>`;
+                    htmlBox.appendChild(div);
+                });
+            } catch (e) { }
+        }
+
+        // 加载 FLASH 游戏（不动）
+        async function loadFlashGames() {
+            const flashBox = document.getElementById('flashGamesBox');
+            try {
+                const res = await fetch('/gamelist?type=flash');
+                const data = await res.json();
+                flashBox.innerHTML = "";
+
+                const fileList = Array.isArray(data.files) ? data.files : [];
+                const swfFiles = fileList.filter(f => f.filepath && f.filepath.toLowerCase().endsWith('.swf'));
+
+                if (swfFiles.length) {
+                    swfFiles.forEach(game => {
+                        const fileName = game.filepath.split('/').pop().replace(/\.[^/.]+$/, "");
+                        const div = document.createElement('div');
+                        div.innerHTML = `
+                        <a href="${game.filepath}" data-url="${game.filepath}">
+                            <div class="item">
+                                <div class="gamelogo">${fileName}</div>
+                                <div class="desc">大小: ${bytesToSize(game.filesize)}</div>
+                            </div>
+                        </a>`;
+                        flashBox.appendChild(div);
+                    });
+                }
+            } catch (e) { }
+        }
+
+        // 文件大小格式化
+        function bytesToSize(bytes) {
+            bytes = Number(bytes);
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
+        }
+    </script>
+</body>
+
+</html>

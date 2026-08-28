@@ -1,0 +1,210 @@
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png"
+        href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8DwQMAAFAbQIOMhQIiIAwQAAAABJRU5ErkJggg==" />
+    <link rel="stylesheet" href="CSS/style.css">
+    <title>剪切板</title>
+</head>
+
+<body>
+    <div class="container" style="width: 100%;">
+        <div id="statusBar">就绪</div>
+        <input type="button" class="custom-btn" onclick="theCopy()" value="复制" />
+        <input type="button" class="custom-btn" onclick="theSave()" value="保存" />
+        <textarea id="clipboardTextArea" class="clipboardTextArea"></textarea>
+    </div>
+
+    <!-- 统一提示弹窗（和文件管理器、WIFI页面完全一致） -->
+    <div id="notificationModal" class="modal modal-notification" style="display:none;">
+        <div class="modal-content">
+            <span class="notification-message"></span>
+            <div class="btn-row">
+                <button class="btn" id="closeNotification">关闭</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+<script>
+    // ====================== 统一提示弹窗（全套通用） ======================
+    function showAlert(message, isSuccess) {
+        var notificationModal = document.getElementById('notificationModal');
+        var notificationMessage = document.querySelector('.notification-message');
+        notificationMessage.textContent = message;
+        notificationMessage.style.color = isSuccess ? 'green' : 'red';
+        notificationModal.style.display = 'block';
+
+        const closeBtn = document.getElementById('closeNotification');
+        if (closeBtn) {
+            closeBtn.onclick = function () {
+                notificationModal.style.display = 'none';
+            };
+        }
+        window.onclick = (e) => {
+            if (e.target == notificationModal) notificationModal.style.display = 'none';
+        };
+    }
+
+    const textArea = document.getElementById('clipboardTextArea');
+    const statusBar = document.getElementById('statusBar');
+
+    function storage() {
+        const filename = "/配置/剪切板.txt";
+        updateStatus(`加载文件: ${filename}`);
+
+        fetch('/looktxt?filename=' + encodeURIComponent(filename))
+            .then(response => response.ok ? response.text() : Promise.reject(`状态码: ${response.status}`))
+            .then(textContent => {
+                textArea.value = textContent || '';
+                updateStatus(`文件加载完成 (${textContent.length} 字符)`);
+            })
+            .catch(error => {
+                updateStatus("错误: " + error);
+            });
+    }
+
+    function updateStatus(msg) {
+        statusBar.textContent = msg;
+        statusBar.style.color = msg.includes('错误') ? 'red' :
+            msg.includes('完成') || msg.includes('成功') ? 'green' : '#666';
+    }
+
+    function theSave() {
+        const text = document.getElementById('clipboardTextArea').value;
+        const txtpath = '/配置/copy.txt';
+        const MAX_CHUNK_BYTES = 436;
+        const CHINESE_BYTE_PER_CHAR = 3;
+        const MAX_CHINESE_PER_CHUNK = Math.floor(MAX_CHUNK_BYTES / CHINESE_BYTE_PER_CHAR);
+
+        let currentChunk = 0;
+        const totalChars = text.length;
+        const totalChunks = Math.ceil(totalChars / MAX_CHINESE_PER_CHUNK);
+
+        let retry = 0, maxRetry = 3;
+
+        if (totalChars === 0) {
+            showAlert('没有内容可保存', false);
+            return;
+        }
+
+        const isPureChinese = /^[\u4e00-\u9fa5]+$/.test(text);
+        updateStatus(`检测到${isPureChinese ? '纯中文' : '混合内容'}，使用436字节适配模式`);
+
+        const sendChunk = () => {
+            if (currentChunk >= totalChunks) {
+                updateStatus(`保存成功: 共 ${totalChunks} 分片，${totalChars} 个汉字`);
+                showAlert('保存成功', true);
+                return;
+            }
+
+            const startChar = currentChunk * MAX_CHINESE_PER_CHUNK;
+            const endChar = Math.min(startChar + MAX_CHINESE_PER_CHUNK, totalChars);
+            const chunkData = text.substring(startChar, endChar);
+
+            const encoder = new TextEncoder();
+            const chunkBytes = encoder.encode(chunkData);
+            const actualBytes = chunkBytes.length;
+
+            if (actualBytes > MAX_CHUNK_BYTES) {
+                console.warn(`分片${currentChunk + 1}字节超限，自动修正`);
+                let safeEnd = startChar + 1;
+                while (safeEnd <= endChar) {
+                    const safeData = text.substring(startChar, safeEnd);
+                    if (encoder.encode(safeData).length > MAX_CHUNK_BYTES) {
+                        safeEnd--;
+                        break;
+                    }
+                    safeEnd++;
+                }
+                chunkData = text.substring(startChar, safeEnd);
+            }
+
+            updateStatus(`上传中: 分片 ${currentChunk + 1}/${totalChunks} (${chunkData.length}字, ${encoder.encode(chunkData).length}字节)`);
+
+            fetch('/editTxt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    txtpath,
+                    totalChunks,
+                    currentChunk,
+                    con: chunkData,
+                    charCount: chunkData.length,
+                    expectedBytes: encoder.encode(chunkData).length,
+                    clipboard: 1
+                }),
+                timeout: 5000
+            })
+                .then(response => response.ok ? response.text() : Promise.reject(`HTTP错误: ${response.status}`))
+                .then(responseText => {
+                    if (responseText === "OK") {
+                        retry = 0;
+                        currentChunk++;
+                        sendChunk();
+                    } else {
+                        throw `服务器响应异常: ${responseText}`;
+                    }
+                })
+                .catch(error => {
+                    console.error(`分片 ${currentChunk + 1} 失败:`, error);
+                    updateStatus(`错误: 分片 ${currentChunk + 1} (重试 ${retry + 1}/${maxRetry})`);
+
+                    if (retry < maxRetry) {
+                        retry++;
+                        setTimeout(sendChunk, 1000 * retry);
+                    } else if (confirm('重试失败，是否重新上传所有内容？')) {
+                        currentChunk = retry = 0;
+                        sendChunk();
+                    }
+                });
+        };
+
+        sendChunk();
+    }
+
+    function theCopy() {
+        const text = textArea.value;
+        if (!text) {
+            showAlert('没有可复制的内容', false);
+            return;
+        }
+
+        textArea.select();
+        textArea.setSelectionRange(0, 99999);
+
+        try {
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text)
+                    .then(() => {
+                        showAlert('复制成功', true);
+                        updateStatus(`已复制 ${text.length} 字符到剪贴板`);
+                    })
+                    .catch(() => fallbackCopy());
+            } else {
+                fallbackCopy();
+            }
+        } catch (err) {
+            showAlert('复制失败: ' + err.message, false);
+            updateStatus('复制失败: ' + err.message);
+        }
+    }
+
+    function fallbackCopy() {
+        if (document.execCommand('copy')) {
+            showAlert('复制成功', true);
+            updateStatus(`已复制 ${textArea.value.length} 字符到剪贴板`);
+        } else {
+            showAlert('复制失败', false);
+            updateStatus('复制失败: 浏览器不支持');
+        }
+    }
+
+    window.onload = storage;
+</script>
+
+</html>

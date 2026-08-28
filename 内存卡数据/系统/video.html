@@ -1,0 +1,134 @@
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=2.0, user-scalable=yes" />
+    <link rel="icon" type="image/png"
+        href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8DwQMAAFAbQIOMhQIiIAwQAAAABJRU5ErkJggg==" />
+    <link rel="stylesheet" href="CSS/style.css">
+    <title>视频播放</title>
+</head>
+<style>
+
+</style>
+
+<body>
+    <!-- 主内容容器 -->
+    <div class="container" style="width: auto;">
+        <div id="videoList">
+        </div>
+    </div>
+
+    <!-- 视频播放弹窗 -->
+    <div id="videoModal" class="backvideomodal">
+        <div class="backvideomodal-content">
+            <video id="videoPlayer" controls></video>
+        </div>
+    </div>
+</body>
+
+<script>
+    // 获取元素
+    const videoModal = document.getElementById('videoModal');
+    const videoPlayer = document.getElementById('videoPlayer');
+
+    function storage() {
+        // 调用统一的后端接口
+        fetch('/get_video')
+            .then(response => response.json())
+            .then(data => {
+                // --- 核心改动：前端过滤视频格式 ---
+                // listFile 返回的是 data.files，我们过滤出视频后缀
+                const videoExtensions = ['.mp4', '.mkv', '.avi', '.mov', '.flv'];
+                const filteredVideos = data.files.filter(file =>
+                    videoExtensions.some(ext => file.filepath.toLowerCase().endsWith(ext))
+                );
+
+                displayVideoList(filteredVideos);
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    function displayVideoList(videos) {
+        const videoList = document.getElementById('videoList');
+        videoList.innerHTML = '';
+
+        videos.forEach(video => {
+            const listItem = document.createElement('li');
+            listItem.className = 'item'; // 保持和你手写一样
+
+            const videoLink = document.createElement('a');
+            videoLink.href = '#';
+            videoLink.className = 'video-link';
+            videoLink.dataset.src = video.filepath;
+
+            // 文件名
+            const videoName = video.filepath.split('/').pop();
+            videoLink.appendChild(document.createTextNode(videoName));
+            listItem.appendChild(videoLink);
+
+            // 文件大小 改成 div，和你手写完全一样
+            const fileSizeText = document.createElement('div');
+            fileSizeText.textContent = ` (${bytesToSize(video.filesize)})`;
+            fileSizeText.className = 'file-size';
+            listItem.appendChild(fileSizeText);
+
+            // 点击整个 li 都能播放（和你手写行为一致）
+            listItem.onclick = function () {
+                videoPlayer.src = video.filepath;
+                videoModal.style.display = 'block'; // 用 block，和你手写一样
+                videoPlayer.play();
+            };
+
+            videoList.appendChild(listItem);
+        });
+    }
+
+    function bytesToSize(bytes) {
+        if (bytes == 0) return '0 B';
+        const k = 1024,
+            sizes = ['B', 'KB', 'MB', 'GB'],
+            i = Math.floor(Math.log(bytes) / Math.log(k));
+        return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
+    }
+
+    if (videoPlayer) {
+        videoPlayer.onerror = function (event) {
+            const error = event.target.error;
+            if (!error) return;
+
+            const code = error.code;
+            const url = videoPlayer.src;
+
+            // --- 关键修改：过滤掉无效的页面路径 ---
+            // 如果 URL 包含当前页面地址，或者以 .html 结尾，说明是关闭操作引发的“假报错”
+            if (url === window.location.href || url.toLowerCase().endsWith('.html')) {
+                console.log('忽略页面路径引发的加载错误');
+                return;
+            }
+
+            // 只有真正的解码错误(3)或资源不存在/格式不支持(4)才弹窗
+            if (code >= 3 && url && url.length > 5) {
+                console.error('视频加载失败，代码:', code, '路径:', url);
+                alert('视频格式不支持或路径错误\n路径: ' + url);
+            }
+        };
+    }
+
+    window.onload = storage;
+
+    // （可选）关闭弹窗并暂停视频：仅点击遮罩空白部分才关闭
+    videoModal.addEventListener('click', function (e) {
+        // 只有点击的是 modal 本身（空白区域）时才关闭
+        if (e.target === this) {
+            this.style.display = 'none';
+            videoPlayer.pause();
+            videoPlayer.currentTime = 0; // 重置播放进度
+            videoPlayer.src = ''; // 清空地址，避免后台继续加载
+        }
+    });
+
+</script>
+
+</html>

@@ -1,0 +1,5 @@
+autoWifinum=1
+wifiConnectTime=10
+hostName=hh
+FirstWebis=6
+defaultfat=1

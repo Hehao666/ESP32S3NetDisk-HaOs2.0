@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=2.0, user-scalable=yes" />
+    <link rel="icon" type="image/png"
+        href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8DwQMAAFAbQIOMhQIiIAwQAAAABJRU5ErkJggg==" />
+    <link rel="stylesheet" href="../系统/CSS/style.css">
+    <title>设置</title>
+</head>
+
+<body>
+    <div
+        style="height:100vh; overflow-y:auto; padding:10px; display:flex; gap:15px; align-items:flex-start; flex-wrap:wrap;">
+        <div class="container" style="width: 280px; flex-shrink: 0;">
+            <h2 style="text-align: left;">默认主页</h2>
+            <div class="containeother" style="display:flex; justify-content: space-between;">
+                <select id="firstWeb" name="firstWeb" onchange="FirstWeb()" style="width: 92%;"></select>
+            </div>
+
+            <div class="upload-section">
+                <form action="/upload" id="upload_form_avatar" enctype="multipart/form-data" method="post">
+                    <input type="file" name="file1" id="file1" onchange="uploadFile('file1')">
+                    <progress id="progressBarAvatar" value="0" max="100" style="width:300px;display:none;"></progress>
+                </form>
+                <button onclick="document.getElementById('file1').click()">修改头像</button>
+
+                <form action="/upload" id="upload_form_wallpaper" enctype="multipart/form-data" method="post">
+                    <input type="file" name="file2" id="file2" onchange="uploadFile('file2')">
+                    <progress id="progressBarWallpaper" value="0" max="100"
+                        style="width:300px;display:none;"></progress>
+                </form>
+                <button onclick="document.getElementById('file2').click()">修改壁纸</button>
+            </div>
+
+            <p style="cursor:pointer; margin:12px 0;" onclick="openDomainModal()">
+                域名前缀：<span id="domainText"></span>
+            </p>
+
+            <p><button class="btn" onclick="goModeChange()">STA⟺AP</button></p>
+        </div>
+
+        <div class="container" style="width: 280px; flex-shrink: 0;">
+            <h2 style="text-align: left;">网络信息</h2>
+            <h3 style="display: inline-block;">当前WIFI：</h3>
+            <span class="text" id="connectwifi"></span>
+            <br>
+
+            <h3 style="display: inline-block;">IPV4：</h3>
+            <span class="text" id="ip"></span>
+            <br>
+
+            <h3 style="display: inline-block;">IPV6：</h3>
+            <span class="text" id="v6_main" style="font-size:12px;"></span>
+            <br>
+            <span id="v6_extra_container" style="font-size:12px;"></span>
+
+            <h2 style="text-align: left;">系统固件更新</h2>
+            <p id="Version">当前版本：</p>
+
+            <input type="file" id="firmwareFile" style="display:none;">
+            <button class="btn" onclick="selectFirmware()">上传固件更新</button>
+
+            <p><button id="testFileIOBtn" class="btn">测试设备读写性能</button></p>
+        </div>
+    </div>
+    <div id="notificationModal" class="modal modal-notification">
+        <div class="modal-content">
+            <span class="notification-message"></span>
+            <div class="btn-row">
+                <button class="btn" id="closeNotification">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="uploadProgressModal" class="modal">
+        <div class="modal-content">
+            <h3>固件上传中</h3>
+            <progress id="uploadProgressBar" value="0" max="100"></progress>
+            <p id="uploadProgressText">0% (0 MB / 0 MB)</p>
+            <div class="btn-row">
+                <button class="btn" onclick="closeUploadModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="domainModal" class="modal">
+        <div class="modal-content">
+            <h3>修改域名前缀</h3>
+            <input type="text" id="newDomain" placeholder="请输入新的域名前缀">
+            <div class="btn-row">
+                <button class="btn btn-cancel" onclick="closeDomainModal()">取消</button>
+                <button class="btn" onclick="saveDomain()">确定</button>
+            </div>
+        </div>
+    </div>
+</body>
+<script>
+    let currentDomain = '';
+
+    function showAlert(message, isSuccess) {
+        var m = document.getElementById('notificationModal');
+        var t = document.querySelector('.notification-message');
+        t.textContent = message;
+        t.style.color = isSuccess ? 'green' : 'red';
+        m.style.display = 'block';
+
+        document.getElementById('closeNotification').onclick = () => m.style.display = 'none';
+        window.onclick = (e) => { if (e.target == m) m.style.display = 'none'; };
+    }
+
+    function openDomainModal() {
+        document.getElementById('newDomain').value = currentDomain;
+        document.getElementById('domainModal').style.display = 'block';
+    }
+
+    function closeDomainModal() {
+        document.getElementById('domainModal').style.display = 'none';
+    }
+
+    function saveDomain() {
+        let val = document.getElementById('newDomain').value.trim();
+        if (!val) {
+            showAlert('域名不能为空', false);
+            return;
+        }
+
+        let x = new XMLHttpRequest();
+        x.open("GET", "/nameText?nameText=" + encodeURIComponent(val), false);
+        x.onload = () => {
+            currentDomain = val;
+            document.getElementById('domainText').innerText = currentDomain;
+            closeDomainModal();
+            showAlert('修改成功', true);
+        };
+        x.send();
+    }
+
+    function changeText(v) {
+        document.getElementById("Version").textContent = "当前版本：" + v;
+    }
+
+    // ===================== 核心：IPV4 + IPV6 显示逻辑 =====================
+    function nameText() {
+        fetch('/get_version')
+            .then(r => r.json())
+            .then(d => {
+                changeText(d.version);
+                currentDomain = d.text;
+                document.getElementById('domainText').innerText = currentDomain;
+                document.getElementById('firstWeb').value = d.FirstWebis;
+                document.getElementById('connectwifi').innerText = d.WIFI;
+
+                // IPV4
+                document.getElementById('ip').innerText = d.IPAD || "--";
+
+                // IPV6 处理
+                let v6Main = "--:--:--";
+                let v6Extra = [];
+
+                if (d.IPV6 && d.IPV6.trim()) {
+                    let list = d.IPV6.split(/\s*,\s*/).filter(item => item.trim());
+                    if (list.length > 0) {
+                        v6Main = list[0];
+                        v6Extra = list.slice(1);
+                    }
+                }
+
+                document.getElementById('v6_main').innerText = v6Main;
+
+                // 多余 IPV6 自动生成
+                let container = document.getElementById('v6_extra_container');
+                container.innerHTML = "";
+                v6Extra.forEach(addr => {
+                    let span = document.createElement('span');
+                    span.style.display = "block";
+                    span.style.fontSize = "12px";
+                    span.innerText = addr;
+                    container.appendChild(span);
+                });
+            });
+    }
+
+    function uploadFile(id) {
+        let f = document.getElementById(id).files[0];
+        if (!f) return;
+
+        let name = id == 'file1' ? '头像.webp' : '背景.webp';
+
+        let x = new XMLHttpRequest();
+        x.open("POST", "/uploadAll?dir=/配置/&set=1", true); // <-- 这里加 &set=1
+        x.setRequestHeader("File-Name", encodeURIComponent(name));
+        x.onload = () => showAlert("上传完成", true);
+        x.onerror = () => showAlert("上传失败", false);
+        x.send(f);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        let list = [
+            { v: 1, t: '网络配置' }, { v: 2, t: '终端' }, { v: 3, t: '音乐播放' },
+            { v: 4, t: '私人影院' }, { v: 5, t: '剪切板' }, { v: 6, t: '内存卡管理' },
+            { v: 7, t: 'HaOs游戏库' }, { v: 8, t: '设置' }, { v: 9, t: '内部存储管理' }
+        ];
+        let sel = document.getElementById('firstWeb');
+        list.forEach(i => { let o = document.createElement('option'); o.value = i.v; o.text = i.t; sel.appendChild(o); });
+    });
+
+    function FirstWeb() {
+        let v = document.getElementById('firstWeb').value;
+        let x = new XMLHttpRequest();
+        x.open("GET", "/FirstWeb?FirstWebis=" + v, false);
+        x.onload = () => { nameText(); showAlert("操作成功！", true); };
+        x.send();
+    }
+
+    function goModeChange() {
+        window.location.href = "/wificonnect";
+    }
+
+    function selectFirmware() {
+        document.getElementById('firmwareFile').click();
+    }
+
+    function closeUploadModal() {
+        document.getElementById('uploadProgressModal').style.display = 'none';
+    }
+
+    function byteToMB(byte) {
+        return (byte / 1024 / 1024).toFixed(2);
+    }
+
+    document.getElementById('firmwareFile').addEventListener('change', e => {
+        let file = e.target.files[0];
+        if (!file) return;
+
+        let modal = document.getElementById('uploadProgressModal');
+        let bar = document.getElementById('uploadProgressBar');
+        let text = document.getElementById('uploadProgressText');
+
+        modal.style.display = 'block';
+        bar.value = 0;
+        text.textContent = "0% (0.00 MB / " + byteToMB(file.size) + " MB)";
+
+        let xhr = new XMLHttpRequest();
+        xhr.open("POST", "/update", true);
+        xhr.setRequestHeader("Content-Type", "application/octet-stream");
+
+        xhr.upload.onprogress = evt => {
+            if (evt.lengthComputable) {
+                let percent = Math.round(evt.loaded / evt.total * 100);
+                bar.value = percent;
+                let loadedMB = byteToMB(evt.loaded);
+                let totalMB = byteToMB(evt.total);
+                text.textContent = `${percent}% (${loadedMB} MB / ${totalMB} MB)`;
+            }
+        };
+
+        xhr.onload = () => {
+            document.getElementById('firmwareFile').value = '';
+            closeUploadModal();
+            showAlert(xhr.status === 200 ? "更新成功，请重启" : "更新失败", xhr.status === 200);
+        };
+
+        xhr.onerror = () => {
+            closeUploadModal();
+            showAlert("上传失败", false);
+        };
+
+        xhr.send(file);
+    });
+
+    document.getElementById('testFileIOBtn').onclick = () => {
+        fetch('/testFileIO')
+            .then(r => r.json())
+            .then(d => {
+                let w = (d.writtenBytes / d.writeTime * 1000 / 1048576).toFixed(2);
+                let r = (d.readBytes / d.readTime * 1000 / 1048576).toFixed(2);
+                showAlert(`写入：${w} MB/s\n读取：${r} MB/s`, true);
+            })
+            .catch(() => showAlert("测试失败", false));
+    };
+
+    window.onclick = (e) => {
+        if (e.target === document.getElementById('domainModal')) {
+            closeDomainModal();
+        }
+    };
+
+    window.onload = nameText;
+</script>
+
+</html>

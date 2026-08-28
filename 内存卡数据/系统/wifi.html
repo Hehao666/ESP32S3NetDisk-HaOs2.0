@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WIFI</title>
+    <link rel="stylesheet" href="CSS/style.css">
+    <style>
+        /* 拖拽占位空位：原位置变虚线遮罩 */
+        .wifi-config.drag-placeholder {
+            opacity: 0.35;
+            border: 2px dashed #5a9bd5;
+            border-radius: 10px;
+            background: rgba(90, 155, 213, 0.08);
+            box-shadow: none;
+        }
+
+        .wifi-config.drag-placeholder * {
+            visibility: hidden;
+        }
+
+        .wifi-config.drag-placeholder::after {
+            content: '拖拽中...';
+            visibility: visible;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #5a9bd5;
+            font-size: 14px;
+        }
+
+        .wifi-config {
+            position: relative;
+            transition: transform 0.2s ease;
+        }
+
+        /* 拖拽图像克隆体：带阴影立体感 */
+        .drag-clone {
+            position: absolute;
+            top: -9999px;
+            left: -9999px;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body style="height: 100%; margin: 0; padding: 0;">
+    <div class="container"
+        style="width: 100%; height: 100% !important; padding: 0; display:flex; gap:15px; align-items:flex-start; flex-wrap:wrap; overflow-y:auto; max-height: none !important;">
+        <div class="container" style="width: 380px; flex-shrink: 0; position: relative;">
+            <form id="configWifi" action="/configWifi">
+                <div id="configsArea">
+                </div>
+                <div id="buttonsArea" style="display: flex; gap: 8px; margin-top: 10px;">
+                    <input type="submit" value="保存" style="flex: 1; padding: 8px 12px; font-size: 13px;" />
+                    <input type="button" value="增加" onclick="addWifi();"
+                        style="flex: 1; padding: 8px 12px; font-size: 13px;" />
+                    <input type="button" value="减少" onclick="deduceWifi();"
+                        style="flex: 1; padding: 8px 12px; font-size: 13px;" />
+                </div>
+            </form>
+            <h2 style="text-align: left">单WIFI最长连接时间（单位s）</h2>
+            <form id="configFile" action="/configFile">
+                <input id="wifiConnectTimeInput" name="wifiConnectTime" type="text" value="" style="width: 95%;"
+                    onkeyup="value=value.replace(/[^0-9]/g, '')" required="required" maxlength="63"
+                    placeholder="输入一个整数，如750" />
+                <br /><br />
+                <input type="submit" value="提交" />
+            </form>
+        </div>
+
+        <div class="container" style="width: 380px; flex-shrink: 0;">
+            <h2>配置热点</h2>
+            <form id="configAP" action="/configAP">
+                <label for="hotspotName">热点名称：</label>
+                <input id="hotspotName" name="hotspotName" type="text" value="" required maxlength="63"
+                    placeholder="请输入热点名称" />
+                <br />
+                <label for="hotspotPassword">热点密码：</label>
+                <input id="hotspotPassword" name="hotspotPassword" type="text" value=""
+                    oninput="this.value = this.value.replace(/[^\w]/g, '').slice(0, 63);" required minlength="8"
+                    placeholder="密码至少8位，非中文字符" />
+                <br />
+                <label for="channel">WIFI信道：</label>
+                <select id="channel" name="channel"></select>
+                <br />
+                <input type="submit" value="提交" />
+            </form>
+            <div style="display:none;" id="loader"></div>
+        </div>
+    </div>
+
+    <!-- 统一提示弹窗（布局、样式与文件管理器完全一致） -->
+    <div id="notificationModal" class="modal modal-notification" style="display:none;">
+        <div class="modal-content">
+            <span class="notification-message"></span>
+            <!-- 按钮放到 btn-row 容器，右对齐，和全局弹窗规则一致 -->
+            <div class="btn-row">
+                <button class="btn" id="closeNotification">关闭</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+<script>
+    // ====================== 统一提示弹窗函数（和文件管理器完全通用） ======================
+    function showAlert(message, isSuccess) {
+        var notificationModal = document.getElementById('notificationModal');
+        var notificationMessage = document.querySelector('.notification-message');
+        notificationMessage.textContent = message;
+        notificationMessage.style.color = isSuccess ? 'green' : 'red';
+        notificationModal.style.display = 'block';
+
+        const closeBtn = document.getElementById('closeNotification');
+        if (closeBtn) {
+            closeBtn.onclick = function () {
+                notificationModal.style.display = 'none';
+            };
+        }
+        window.onclick = (e) => {
+            if (e.target == notificationModal) notificationModal.style.display = 'none';
+        };
+    }
+
+    function addWifi() {
+        var xmlhttp = new XMLHttpRequest();
+        xmlhttp.open("GET", "/addWifi", false);
+        xmlhttp.send();
+        if (xmlhttp.status == 200) storage();
+    }
+
+    function deduceWifi() {
+        var xmlhttp = new XMLHttpRequest();
+        xmlhttp.open("GET", "/deduceWifi", false);
+        xmlhttp.send();
+        if (xmlhttp.status == 200) storage();
+    }
+
+    function storage() {
+        fetch('/get_wifi')
+            .then(response => response.json())
+            .then(data => {
+                generateWifiInputsWithData(data.wifilist);
+                fillWifiConnectTime(data.wifiConnectTime);
+                fillHotspotConfig(data);
+                generateChannelOptions(data.channel);
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    function generateWifiInputsWithData(wifiDataList) {
+        const configsArea = document.getElementById('configsArea');
+        configsArea.innerHTML = '';
+
+        for (let i = 0; i < wifiDataList.length; i++) {
+            const wifiData = wifiDataList[i] || {};
+            const counter = i + 1;
+            const name = wifiData.wifiname || "";
+            const pass = wifiData.wifipass || "";
+
+            const configDiv = document.createElement('div');
+            configDiv.className = 'wifi-config';
+            configDiv.innerHTML = `
+            <h2 style="cursor: move; user-select: none;">开机自连第${counter}WIFI</h2>
+            <label for="WifiName${counter}">Wi-Fi名称：</label>
+            <input type="text" name="WifiName${counter}" value="${name}" class="hotspot-input" maxlength="63" autocomplete="off" style="width: 95%;"><br />
+            <label for="WifiPassword${counter}">Wi-Fi密码：</label>
+            <input type="password" name="WifiPassword${counter}" value="${pass}" class="hotspot-input" maxlength="63" onkeyup="this.value=this.value.replace(/[\\u4e00-\\u9fa5]/ig,'');" autocomplete="current-password" style="width: 95%;"><br />
+        `;
+            configsArea.appendChild(configDiv);
+        }
+
+        bindDragSort();
+    }
+
+    /* 拖拽排序：只有 h2 标题可作为拖拽手柄，避免点击 input 时误触发 */
+    function bindDragSort() {
+        const configsArea = document.getElementById('configsArea');
+        let dragSrc = null;
+
+        configsArea.querySelectorAll('.wifi-config').forEach(item => {
+            const h2 = item.querySelector('h2');
+            /* mousedown 在 h2 上时才启用整个块可拖拽 */
+            h2.addEventListener('mousedown', () => { item.draggable = true; });
+            item.addEventListener('dragstart', function (e) {
+                dragSrc = this;
+                e.dataTransfer.effectAllowed = 'move';
+
+                /* 创建带阴影的克隆作为拖拽图像（拿出来立体效果） */
+                const clone = this.cloneNode(true);
+                clone.classList.add('drag-clone');
+                const rect = this.getBoundingClientRect();
+                clone.style.width = rect.width + 'px';
+                document.body.appendChild(clone);
+                e.dataTransfer.setDragImage(clone, rect.width / 2, 20);
+                setTimeout(() => { if (clone.parentNode) clone.parentNode.removeChild(clone); }, 0);
+
+                /* 原元素变占位空位 */
+                this.classList.add('drag-placeholder');
+            });
+            item.addEventListener('dragend', function () {
+                this.classList.remove('drag-placeholder');
+                this.style.opacity = '';
+                this.draggable = false;
+                renumberWifiConfigs();
+            });
+            item.addEventListener('dragover', function (e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                if (!dragSrc || dragSrc === this) return false;
+
+                /* 根据鼠标在块内的位置决定插到前面还是后面 */
+                const rect = this.getBoundingClientRect();
+                const midpoint = rect.top + rect.height / 2;
+                const putBefore = e.clientY < midpoint;
+
+                /* 位置没变就不操作，避免 dragover 频繁触发导致卡顿 */
+                if (putBefore && dragSrc === this.previousElementSibling) return false;
+                if (!putBefore && dragSrc === this.nextElementSibling) return false;
+                if (putBefore && this === configsArea.firstChild && dragSrc === configsArea.firstChild) return false;
+
+                /* FLIP First：记录所有块当前位置 */
+                const items = Array.from(configsArea.querySelectorAll('.wifi-config'));
+                const firstRects = new Map();
+                items.forEach(el => firstRects.set(el, el.getBoundingClientRect()));
+
+                /* 实时移动 DOM */
+                if (putBefore) {
+                    configsArea.insertBefore(dragSrc, this);
+                } else {
+                    configsArea.insertBefore(dragSrc, this.nextSibling);
+                }
+
+                /* FLIP Play：被挤开的块平滑滑动到新位置（拖拽中的块不动画） */
+                items.forEach(el => {
+                    if (el === dragSrc) return;
+                    const first = firstRects.get(el);
+                    const last = el.getBoundingClientRect();
+                    const dy = first.top - last.top;
+                    if (dy !== 0) {
+                        el.style.transition = 'none';
+                        el.style.transform = `translateY(${dy}px)`;
+                        requestAnimationFrame(() => {
+                            el.style.transition = 'transform 0.2s ease';
+                            el.style.transform = '';
+                        });
+                    }
+                });
+                return false;
+            });
+            item.addEventListener('drop', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            });
+        });
+    }
+
+    /* 拖拽换位置后重新编号（h2 文本 + input name） */
+    function renumberWifiConfigs() {
+        document.querySelectorAll('#configsArea .wifi-config').forEach((config, i) => {
+            const counter = i + 1;
+            const h2 = config.querySelector('h2');
+            if (h2) h2.textContent = `开机自连第${counter}WIFI`;
+            const nameInput = config.querySelector('input[type="text"]');
+            const passInput = config.querySelector('input[type="password"]');
+            if (nameInput) nameInput.name = `WifiName${counter}`;
+            if (passInput) passInput.name = `WifiPassword${counter}`;
+        });
+    }
+
+    function fillWifiConnectTime(time) {
+        const connectTimeInput = document.getElementById('wifiConnectTimeInput');
+        connectTimeInput.value = time;
+    }
+
+    function fillHotspotConfig(data) {
+        const hotspotSsidInput = document.getElementById('hotspotName');
+        const hotspotPasswordInput = document.getElementById('hotspotPassword');
+        const channelInput = document.getElementById('channel');
+        hotspotSsidInput.value = data.ssid;
+        hotspotPasswordInput.value = data.password;
+        channelInput.value = data.channel;
+        generateChannelOptions(data.channel);
+    }
+
+    function generateChannelOptions(channelValue) {
+        const channelSelect = document.getElementById('channel');
+        channelSelect.innerHTML = '';
+        for (let i = 1; i <= 13; i++) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.text = i.toString();
+            if (i === parseInt(channelValue)) {
+                option.selected = true;
+            }
+            channelSelect.appendChild(option);
+        }
+    }
+
+    // 保存WIFI配置
+    function submitConfig(event) {
+        event.preventDefault();
+        var xmlhttp = new XMLHttpRequest();
+        xmlhttp.onreadystatechange = function () {
+            if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+                showAlert('WIFI配置保存成功', true);
+            }
+        };
+        xmlhttp.open("GET", event.target.action + "?" + new URLSearchParams(new FormData(event.target)).toString(), true);
+        xmlhttp.send();
+    }
+
+    // 保存热点配置
+    function submitConfigAP(event) {
+        event.preventDefault();
+        var xmlhttp = new XMLHttpRequest();
+        xmlhttp.onreadystatechange = function () {
+            if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+                showAlert('热点配置保存成功', true);
+            }
+        };
+        xmlhttp.open("GET", event.target.action + "?" + new URLSearchParams(new FormData(event.target)).toString(), true);
+        xmlhttp.send();
+    }
+
+    // 保存连接时长
+    function submitConfigFile(event) {
+        event.preventDefault();
+        var xmlhttp = new XMLHttpRequest();
+        xmlhttp.onreadystatechange = function () {
+            if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+                showAlert('最长连接时长保存成功', true);
+            }
+        };
+        xmlhttp.open("GET", event.target.action + "?" + new URLSearchParams(new FormData(event.target)).toString(), true);
+        xmlhttp.send();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.getElementById('configWifi').addEventListener('submit', submitConfig);
+        document.getElementById('configAP').addEventListener('submit', submitConfigAP);
+        document.getElementById('configFile').addEventListener('submit', submitConfigFile);
+    });
+
+    window.onload = storage;
+</script>
+
+</html>
