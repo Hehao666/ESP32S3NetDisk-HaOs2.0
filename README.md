@@ -24,6 +24,8 @@
 
 https://hehao666.github.io/
 
+# QQ群：933199964
+
 # 使用指南：
 
 ESP-IDF的版本为6.0
