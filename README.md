@@ -17,7 +17,7 @@
 
 哔哩哔哩视频：https://www.bilibili.com/video/BV1zmtN6XE9n/
 
-立创开源广场：等待更新
+立创开源广场：https://oshwhub.com/haha233.jpg/esp32-pian-xie-sd-tf-ka-fu-wu-qi_copy_copy_copy
 
 
 # 个人博客：
