@@ -1,0 +1,95 @@
+Command: cmake -G Ninja -B D:\ESP32_project\ESP32S3\esp32S3netdisk_3_1.7\esp32S3netdisk\build -DPYTHON_DEPS_CHECKED=1 -DPYTHON=d:\ESP-IDF\tool\python_env\idf6.0_py3.11_env\Scripts\python.exe -DESP_PLATFORM=1 -DCCACHE_ENABLE=True D:\ESP32_project\ESP32S3\esp32S3netdisk_3_1.7\esp32S3netdisk
+info: Default value for ESP_WIFI_STATIC_RX_BUFFER_NUM in sdkconfig is 16 but it is 10 according to Kconfig.
+Using default value from sdkconfig (16).
+info: Default value for ESP_WIFI_RX_MGMT_BUF_NUM_DEF in sdkconfig is 8 but it is 5 according to Kconfig.
+Using default value from sdkconfig (8).
+info: Default value for ESP_WIFI_TX_BA_WIN in sdkconfig is 12 but it is 6 according to Kconfig.
+Using default value from sdkconfig (12).
+info: Default value for ESP_WIFI_RX_BA_WIN in sdkconfig is 12 but it is 6 according to Kconfig.
+Using default value from sdkconfig (12).
+info: Default value for ESP_WIFI_EXTRA_IRAM_OPT in sdkconfig is y but it is n according to Kconfig.
+Using default value from sdkconfig (y).
+info: Default value for LWIP_L2_TO_L3_COPY in sdkconfig is y but it is n according to Kconfig.
+Using default value from sdkconfig (y).
+info: Default value for LWIP_IRAM_OPTIMIZATION in sdkconfig is y but it is n according to Kconfig.
+Using default value from sdkconfig (y).
+info: Default value for LWIP_EXTRA_IRAM_OPTIMIZATION in sdkconfig is y but it is n according to Kconfig.
+Using default value from sdkconfig (y).
+info: Default value for LWIP_TCPIP_RECVMBOX_SIZE in sdkconfig is 64 but it is 32 according to Kconfig.
+Using default value from sdkconfig (64).
+info: Default value for LWIP_TCP_SND_BUF_DEFAULT in sdkconfig is 65535 but it is 5760 according to Kconfig.
+Using default value from sdkconfig (65535).
+info: Default value for LWIP_TCP_WND_DEFAULT in sdkconfig is 24575 but it is 5760 according to Kconfig.
+Using default value from sdkconfig (24575).
+info: Default value for LWIP_TCP_RECVMBOX_SIZE in sdkconfig is 64 but it is 6 according to Kconfig.
+Using default value from sdkconfig (64).
+info: Default value for LWIP_TCP_ACCEPTMBOX_SIZE in sdkconfig is 32 but it is 6 according to Kconfig.
+Using default value from sdkconfig (32).
+info: Default value for LWIP_UDP_RECVMBOX_SIZE in sdkconfig is 64 but it is 6 according to Kconfig.
+Using default value from sdkconfig (64).
+info: Default value for LWIP_TCPIP_TASK_STACK_SIZE in sdkconfig is 4096 but it is 3072 according to Kconfig.
+Using default value from sdkconfig (4096).
+Configuration Report                                                           
++-----------------------------------------------------------------------------+
+|  Parser Version: 1                                                          |
+|  Verbosity: default                                                         |
+|  Defaults policy: sdkconfig                                                 |
+|  Status: Finished with notifications                                        |
+|                                                                             |
+| Default Value Mismatch                                                      |
+| +-------------------------------------------------------------------------+ |
+| | Using sdkconfig default values                                       |  | |
+| | Config symbols with different default value between sdkconfig and    |  | |
+| | Kconfig                                                              |  | |
+| | LWIP_UDP_RECVMBOX_SIZE: Kconfig default value: 6, sdkconfig default  |  | |
+| | value: 64                                                            |  | |
+| | LWIP_TCP_SND_BUF_DEFAULT: Kconfig default value: 5760, sdkconfig     |  | |
+| | default value: 65535                                                 |  | |
+| | ESP_WIFI_STATIC_RX_BUFFER_NUM: Kconfig default value: 10, sdkconfig  |  | |
+| | default value: 16                                                    |  | |
+| | LWIP_TCPIP_RECVMBOX_SIZE: Kconfig default value: 32, sdkconfig       |  | |
+| | default value: 64                                                    |  | |
+| | LWIP_L2_TO_L3_COPY: Kconfig default value: n, sdkconfig default      |  | |
+| | value: y                                                             |  | |
+| | ESP_WIFI_RX_BA_WIN: Kconfig default value: 6, sdkconfig default      |  | |
+| | value: 12                                                            |  | |
+| | LWIP_EXTRA_IRAM_OPTIMIZATION: Kconfig default value: n, sdkconfig    |  | |
+| | default value: y                                                     |  | |
+| | LWIP_TCP_RECVMBOX_SIZE: Kconfig default value: 6, sdkconfig default  |  | |
+| | value: 64                                                            |  | |
+| | LWIP_TCPIP_TASK_STACK_SIZE: Kconfig default value: 3072, sdkconfig   |  | |
+| | default value: 4096                                                  |  | |
+| | LWIP_IRAM_OPTIMIZATION: Kconfig default value: n, sdkconfig default  |  | |
+| | value: y                                                             |  | |
+| | ESP_WIFI_RX_MGMT_BUF_NUM_DEF: Kconfig default value: 5, sdkconfig    |  | |
+| | default value: 8                                                     |  | |
+| | ESP_WIFI_TX_BA_WIN: Kconfig default value: 6, sdkconfig default      |  | |
+| | value: 12                                                            |  | |
+| | LWIP_TCP_ACCEPTMBOX_SIZE: Kconfig default value: 6, sdkconfig        |  | |
+| | default value: 32                                                    |  | |
+| | LWIP_TCP_WND_DEFAULT: Kconfig default value: 5760, sdkconfig default |  | |
+| | value: 24575                                                         |  | |
+| | ESP_WIFI_EXTRA_IRAM_OPT: Kconfig default value: n, sdkconfig default |  | |
+| | value: y                                                             |  | |
+| |                                                                      |  | |
+| | Choice symbols with different default selection between sdkconfig    |  | |
+| | and Kconfig                                                          |  | |
+| | ESP_DEFAULT_CPU_FREQ_MHZ: Kconfig default selection:                 |  | |
+| | ESP_DEFAULT_CPU_FREQ_MHZ_160, sdkconfig default selection:           |  | |
+| | ESP_DEFAULT_CPU_FREQ_MHZ_240                                         |  | |
+| | ESP_WIFI_MGMT_RX_BUFFER: Kconfig default selection:                  |  | |
+| | ESP_WIFI_STATIC_RX_MGMT_BUFFER, sdkconfig default selection:         |  | |
+| | ESP_WIFI_DYNAMIC_RX_MGMT_BUFFER                                      |  | |
+| +-------------------------------------------------------------------------+ |
+| Multiple Assignments                                                        |
+| +---------------------------------------------------------+                 |
+| | Choice ESP_DEFAULT_CPU_FREQ_MHZ:                        |                 |
+| |     ESP_DEFAULT_CPU_FREQ_MHZ_160 (default selection)    |                 |
+| |     ESP_DEFAULT_CPU_FREQ_MHZ_240 (default selection)    |                 |
+| |     -> using ESP_DEFAULT_CPU_FREQ_MHZ_240               |                 |
+| | Choice ESP_WIFI_MGMT_RX_BUFFER:                         |                 |
+| |     ESP_WIFI_STATIC_RX_MGMT_BUFFER (default selection)  |                 |
+| |     ESP_WIFI_DYNAMIC_RX_MGMT_BUFFER (default selection) |                 |
+| |     -> using ESP_WIFI_DYNAMIC_RX_MGMT_BUFFER            |                 |
+| +---------------------------------------------------------+                 |
++-----------------------------------------------------------------------------+

@@ -296,6 +296,7 @@ void http_start_server(void) {
   }
 
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+  config.stack_size = 8192;
   config.server_port = HTTP_SERVER_PORT;
   config.uri_match_fn = httpd_uri_match_wildcard;
   config.max_uri_handlers = allFile_route_count + 10;
